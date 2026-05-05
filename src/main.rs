@@ -42,6 +42,8 @@ async fn main() {
     // routes that need tenant context
     let tenant_routes = Router::new()
         .route("/api/dashboard", get(handlers::health::tenant_home))
+        .route("/api/domains", post(handlers::domains::add_domain))
+        .route("/api/domains", get(handlers::domains::list_domains))
         .route_layer(from_fn(middleware::auth::require_auth))
         .route_layer(from_fn_with_state(
             state.clone(),
@@ -56,6 +58,18 @@ async fn main() {
         .route(
             "/api/provisioning/stream/:tenant_id",
             get(handlers::provisioning::status_stream),
+        )
+        .route(
+            "/api/domains/stream/:domain_id",
+            get(handlers::domains::domain_stream),
+        )
+        .route(
+            "/.well-known/acme-challenge/:token",
+            get(handlers::domains::acme_challenge),
+        )
+        .route(
+            "/.well-known/cf-custom-hostname-challenge/:token",
+            get(handlers::domains::acme_challenge),
         );
 
     // root route — serves signup or login depending on subdomain

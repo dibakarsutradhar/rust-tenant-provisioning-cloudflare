@@ -15,6 +15,18 @@ pub async fn get_tenant_id_by_subdomain(
     Ok(row)
 }
 
+pub async fn get_tenant_id_by_custom_domain(
+    db: &PgPool,
+    domain: &str,
+) -> Result<Option<Uuid>, sqlx::Error> {
+    sqlx::query_scalar!(
+        "SELECT tenant_id FROM custom_domains WHERE domain = $1 AND status = 'active'",
+        domain
+    )
+    .fetch_optional(db)
+    .await
+}
+
 pub async fn insert_tenant(
     db: &PgPool,
     subdomain: &str,
