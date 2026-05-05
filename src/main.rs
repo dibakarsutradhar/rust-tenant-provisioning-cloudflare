@@ -1,4 +1,4 @@
-use axum::{Extension, Router, routing::get};
+use axum::{Extension, Router, middleware::from_fn_with_state, routing::get};
 use sqlx::postgres::PgPoolOptions;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
@@ -32,10 +32,22 @@ async fn main() {
 
     tracing::info!("Connected to Postgres");
 
-    let state = AppState { db };
+    let state = AppState::new(db);
+
+    // routes that need tenant context
+    let tenant_routes = Router::new()
+        .route("/", get(handlers::health::tenant_home))
+        .route_layer(from_fn_with_state(
+            state.clone(),
+            middleware::tenant::resolve_tenant,
+        ));
+
+    // public routes — no tenant resolution needed
+    let public_routes = Router::new().route("/health", get(handlers::health::health));
 
     let app = Router::new()
-        .route("/health", get(handlers::health::health))
+        .merge(public_routes)
+        .merge(tenant_routes)
         .layer(Extension(state))
         .layer(TraceLayer::new_for_http());
 
