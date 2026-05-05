@@ -1,270 +1,832 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>GarageOS — Dashboard</title>
-		<style>
-			@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GarageOS — Dashboard</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
 
-			*,
-			*::before,
-			*::after {
-				box-sizing: border-box;
-				margin: 0;
-				padding: 0;
-			}
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-			:root {
-				--bg: #0f0f0f;
-				--surface: #1a1a1a;
-				--border: #2a2a2a;
-				--accent: #e8ff47;
-				--text: #f0f0f0;
-				--muted: #888;
-			}
+    :root {
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --surface2: #222;
+      --border: #2a2a2a;
+      --accent: #e8ff47;
+      --accent-dark: #b8cc1a;
+      --text: #f0f0f0;
+      --muted: #666;
+      --success: #4dff91;
+      --warning: #ffb347;
+      --error: #ff5c5c;
+      --info: #47b8ff;
+    }
 
-			body {
-				font-family: 'DM Sans', sans-serif;
-				background: var(--bg);
-				color: var(--text);
-				min-height: 100vh;
-			}
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
 
-			nav {
-				display: flex;
-				align-items: center;
-				justify-content: space-between;
-				padding: 1.25rem 2rem;
-				border-bottom: 1px solid var(--border);
-			}
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.25rem 2rem;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      z-index: 10;
+    }
 
-			.logo {
-				font-family: 'Syne', sans-serif;
-				font-weight: 800;
-				font-size: 1.25rem;
-				color: var(--accent);
-			}
+    .logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 1.25rem;
+      color: var(--accent);
+    }
 
-			.logo span {
-				color: var(--text);
-			}
+    .logo span { color: var(--text); }
 
-			.nav-right {
-				display: flex;
-				align-items: center;
-				gap: 1rem;
-				font-size: 0.875rem;
-				color: var(--muted);
-			}
+    .nav-right { display: flex; align-items: center; gap: 0.75rem; }
 
-			.logout {
-				background: none;
-				border: 1px solid var(--border);
-				color: var(--muted);
-				padding: 0.4rem 0.85rem;
-				border-radius: 6px;
-				cursor: pointer;
-				font-family: 'DM Sans', sans-serif;
-				font-size: 0.85rem;
-				transition:
-					border-color 0.2s,
-					color 0.2s;
-			}
+    .pill {
+      font-size: 0.72rem;
+      padding: 0.25rem 0.65rem;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-family: monospace;
+    }
 
-			.logout:hover {
-				border-color: var(--text);
-				color: var(--text);
-			}
+    .btn-ghost {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 0.4rem 0.85rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.82rem;
+      transition: border-color 0.2s, color 0.2s;
+    }
 
-			.main {
-				max-width: 900px;
-				margin: 0 auto;
-				padding: 3rem 2rem;
-			}
+    .btn-ghost:hover { border-color: var(--text); color: var(--text); }
 
-			.welcome {
-				font-family: 'Syne', sans-serif;
-				font-weight: 700;
-				font-size: 2rem;
-				margin-bottom: 0.5rem;
-			}
+    .main {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2.5rem 2rem;
+    }
 
-			.workspace-tag {
-				display: inline-block;
-				background: var(--surface);
-				border: 1px solid var(--border);
-				border-radius: 6px;
-				padding: 0.25rem 0.65rem;
-				font-family: monospace;
-				font-size: 0.8rem;
-				color: var(--accent);
-				margin-bottom: 2.5rem;
-			}
+    .page-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 1.5rem;
+    }
 
-			.grid {
-				display: grid;
-				grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-				gap: 1rem;
-				margin-bottom: 2.5rem;
-			}
+    /* ── info card ── */
+    .info-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
 
-			.stat-card {
-				background: var(--surface);
-				border: 1px solid var(--border);
-				border-radius: 12px;
-				padding: 1.5rem;
-			}
+    .info-card-header {
+      padding: 0.75rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
 
-			.stat-label {
-				font-size: 0.75rem;
-				text-transform: uppercase;
-				letter-spacing: 0.05em;
-				color: var(--muted);
-				margin-bottom: 0.5rem;
-			}
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
 
-			.stat-value {
-				font-family: 'Syne', sans-serif;
-				font-size: 2rem;
-				font-weight: 700;
-				color: var(--accent);
-			}
+    .dot.green  { background: var(--success); }
+    .dot.blue   { background: var(--info); }
+    .dot.orange { background: var(--warning); }
 
-			.section-title {
-				font-family: 'Syne', sans-serif;
-				font-size: 1rem;
-				font-weight: 600;
-				margin-bottom: 1rem;
-				color: var(--muted);
-				text-transform: uppercase;
-				letter-spacing: 0.05em;
-			}
+    .info-row {
+      display: flex;
+      align-items: center;
+      padding: 0.85rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      gap: 1rem;
+    }
 
-			.empty {
-				background: var(--surface);
-				border: 1px solid var(--border);
-				border-radius: 12px;
-				padding: 3rem;
-				text-align: center;
-				color: var(--muted);
-				font-size: 0.9rem;
-			}
+    .info-row:last-child { border-bottom: none; }
 
-			.tenant-info {
-				background: var(--surface);
-				border: 1px solid var(--border);
-				border-radius: 12px;
-				padding: 1.25rem 1.5rem;
-				font-size: 0.875rem;
-				display: flex;
-				flex-direction: column;
-				gap: 0.5rem;
-			}
+    .info-key {
+      font-size: 0.8rem;
+      color: var(--muted);
+      min-width: 160px;
+      flex-shrink: 0;
+    }
 
-			.info-row {
-				display: flex;
-				justify-content: space-between;
-				align-items: center;
-			}
+    .info-val {
+      font-family: monospace;
+      font-size: 0.82rem;
+      color: var(--text);
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
 
-			.info-key {
-				color: var(--muted);
-			}
-			.info-val {
-				font-family: monospace;
-				font-size: 0.8rem;
-				color: var(--text);
-			}
-		</style>
-	</head>
-	<body>
-		<nav>
-			<div class="logo">Garage<span>OS</span></div>
-			<div class="nav-right">
-				<span id="nav-email"></span>
-				<button class="logout" onclick="logout()">Sign out</button>
-			</div>
-		</nav>
+    .info-val.accent { color: var(--accent); }
+    .info-val.success { color: var(--success); }
+    .info-val.warning { color: var(--warning); }
+    .info-val.info { color: var(--info); }
 
-		<div class="main">
-			<h1 class="welcome">Good to see you 👋</h1>
-			<div class="workspace-tag" id="workspace-tag"></div>
+    .copy-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: color 0.15s, border-color 0.15s;
+      flex-shrink: 0;
+    }
 
-			<div class="grid">
-				<div class="stat-card">
-					<div class="stat-label">Work orders</div>
-					<div class="stat-value">0</div>
-				</div>
-				<div class="stat-card">
-					<div class="stat-label">Vehicles</div>
-					<div class="stat-value">0</div>
-				</div>
-				<div class="stat-card">
-					<div class="stat-label">Customers</div>
-					<div class="stat-value">0</div>
-				</div>
-				<div class="stat-card">
-					<div class="stat-label">Technicians</div>
-					<div class="stat-value">0</div>
-				</div>
-			</div>
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    .copy-btn.copied { color: var(--success); border-color: var(--success); }
 
-			<p class="section-title">Workspace info</p>
-			<div class="tenant-info">
-				<div class="info-row">
-					<span class="info-key">Tenant ID</span>
-					<span class="info-val" id="info-tenant-id">—</span>
-				</div>
-				<div class="info-row">
-					<span class="info-key">Role</span>
-					<span class="info-val" id="info-role">—</span>
-				</div>
-				<div class="info-row">
-					<span class="info-key">Domain</span>
-					<span class="info-val" id="info-domain">—</span>
-				</div>
-			</div>
-		</div>
+    .status-dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      margin-right: 6px;
+      background: var(--success);
+      animation: blink 2s ease-in-out infinite;
+    }
 
-		<script>
-			const token = localStorage.getItem('token');
-			if (!token) {
-				window.location.href = '/login.html';
-			}
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
-			// decode JWT payload (no verification — just for display)
-			function parseJwt(t) {
-				try {
-					return JSON.parse(atob(t.split('.')[1]));
-				} catch {
-					return {};
-				}
-			}
+    /* ── custom domains ── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+      margin-top: 1.75rem;
+    }
 
-			const claims = parseJwt(token);
-			const host = window.location.hostname;
+    .section-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
 
-			document.getElementById('workspace-tag').textContent = host;
-			document.getElementById('info-tenant-id').textContent =
-				claims.tenant_id || '—';
-			document.getElementById('info-role').textContent = claims.role || '—';
-			document.getElementById('info-domain').textContent = host;
+    .btn-primary {
+      background: var(--accent);
+      color: #0f0f0f;
+      border: none;
+      padding: 0.4rem 0.9rem;
+      border-radius: 6px;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
 
-			// verify token is still valid against the server
-			fetch('/', {
-				headers: { Authorization: `Bearer ${token}` },
-			}).then((res) => {
-				if (res.status === 401) {
-					localStorage.clear();
-					window.location.href = '/login.html';
-				}
-			});
+    .btn-primary:hover { background: var(--accent-dark); }
 
-			function logout() {
-				localStorage.clear();
-				window.location.href = '/login.html';
-			}
-		</script>
-	</body>
+    .domain-row {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.85rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+    }
+
+    .domain-host {
+      font-family: monospace;
+      font-size: 0.85rem;
+    }
+
+    .badge {
+      font-size: 0.68rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 20px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .badge-active  { background: #0d2a1a; color: var(--success); border: 1px solid #1a4a2a; }
+    .badge-pending { background: #2a2010; color: var(--warning); border: 1px solid #4a3a10; }
+    .badge-failed  { background: #2a1010; color: var(--error);   border: 1px solid #4a2010; }
+
+    .empty-state {
+      background: var(--surface);
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      padding: 2rem;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    /* ── modal ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      display: none;
+      place-items: center;
+      z-index: 100;
+      padding: 1rem;
+    }
+
+    .modal-overlay.open { display: grid; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.75rem;
+      width: 100%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 1.15rem;
+      margin-bottom: 0.3rem;
+    }
+
+    .modal-sub {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+
+    .input-group { margin-bottom: 1rem; }
+
+    .input-group label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.4rem;
+    }
+
+    .input-group input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.7rem 1rem;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .input-group input:focus { border-color: var(--accent); }
+
+    .dns-records { display: none; }
+    .dns-records.show { display: block; }
+
+    .dns-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.1rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .dns-card-label {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 0.65rem;
+      font-weight: 600;
+    }
+
+    .dns-field {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.4rem;
+      font-size: 0.8rem;
+    }
+
+    .dns-field:last-child { margin-bottom: 0; }
+
+    .dns-field-key {
+      color: var(--muted);
+      min-width: 55px;
+      font-size: 0.75rem;
+    }
+
+    .dns-field-val {
+      font-family: monospace;
+      font-size: 0.76rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .dns-warn {
+      font-size: 0.75rem;
+      color: var(--warning);
+      margin-top: 0.5rem;
+    }
+
+    .txt-card-wrap { opacity: 0.35; transition: opacity 0.4s; }
+    .txt-card-wrap.unlocked { opacity: 1; }
+
+    .steps-list {
+      margin-top: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .step-item {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      font-size: 0.82rem;
+      color: var(--muted);
+      transition: color 0.3s;
+    }
+
+    .step-item.active { color: var(--accent); }
+    .step-item.done   { color: var(--success); }
+    .step-item.error  { color: var(--error); }
+
+    .step-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--border);
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+
+    .step-item.active .step-dot { background: var(--accent); animation: blink 1s ease-in-out infinite; }
+    .step-item.done .step-dot   { background: var(--success); }
+    .step-item.error .step-dot  { background: var(--error); }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">Garage<span>OS</span></div>
+  <div class="nav-right">
+    <span class="pill" id="nav-host"></span>
+    <button class="btn-ghost" onclick="logout()">Sign out</button>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="page-title">POC Dashboard</div>
+
+  <!-- tenant identity -->
+  <div class="info-card">
+    <div class="info-card-header"><div class="dot green"></div> Tenant identity</div>
+    <div class="info-row">
+      <span class="info-key">tenant_id</span>
+      <span class="info-val accent" id="v-tenant-id">—</span>
+      <button class="copy-btn" onclick="copyVal('v-tenant-id', this)">Copy</button>
+    </div>
+    <div class="info-row">
+      <span class="info-key">user_id</span>
+      <span class="info-val" id="v-user-id">—</span>
+      <button class="copy-btn" onclick="copyVal('v-user-id', this)">Copy</button>
+    </div>
+    <div class="info-row">
+      <span class="info-key">role</span>
+      <span class="info-val success" id="v-role">—</span>
+    </div>
+    <div class="info-row">
+      <span class="info-key">jwt expires</span>
+      <span class="info-val warning" id="v-exp">—</span>
+    </div>
+  </div>
+
+  <!-- routing info -->
+  <div class="info-card">
+    <div class="info-card-header"><div class="dot blue"></div> Routing</div>
+    <div class="info-row">
+      <span class="info-key">current host</span>
+      <span class="info-val accent" id="v-host">—</span>
+      <button class="copy-btn" onclick="copyVal('v-host', this)">Copy</button>
+    </div>
+    <div class="info-row">
+      <span class="info-key">resolved subdomain</span>
+      <span class="info-val" id="v-subdomain">—</span>
+    </div>
+    <div class="info-row">
+      <span class="info-key">server response</span>
+      <span class="info-val" id="v-server-res">checking…</span>
+    </div>
+    <div class="info-row">
+      <span class="info-key">db reachable</span>
+      <span class="info-val" id="v-db">checking…</span>
+    </div>
+    <div class="info-row">
+      <span class="info-key">ssl issuer</span>
+      <span class="info-val" id="v-ssl">—</span>
+    </div>
+  </div>
+
+  <!-- session -->
+  <div class="info-card">
+    <div class="info-card-header"><div class="dot orange"></div> Session</div>
+    <div class="info-row">
+      <span class="info-key">jwt token</span>
+      <span class="info-val" id="v-token" style="font-size:0.7rem">—</span>
+      <button class="copy-btn" onclick="copyVal('v-token', this)">Copy</button>
+    </div>
+    <div class="info-row">
+      <span class="info-key">storage</span>
+      <span class="info-val">localStorage</span>
+    </div>
+    <div class="info-row">
+      <span class="info-key">auth header</span>
+      <span class="info-val" style="font-size:0.72rem">Bearer {token}</span>
+    </div>
+  </div>
+
+  <!-- quick curl commands -->
+  <div class="info-card">
+    <div class="info-card-header"><div class="dot"></div> Quick test commands</div>
+    <div class="info-row">
+      <span class="info-key">health check</span>
+      <span class="info-val" id="v-curl-health" style="font-size:0.72rem">—</span>
+      <button class="copy-btn" onclick="copyVal('v-curl-health', this)">Copy</button>
+    </div>
+    <div class="info-row">
+      <span class="info-key">auth check</span>
+      <span class="info-val" id="v-curl-auth" style="font-size:0.72rem">—</span>
+      <button class="copy-btn" onclick="copyVal('v-curl-auth', this)">Copy</button>
+    </div>
+    <div class="info-row">
+      <span class="info-key">list domains</span>
+      <span class="info-val" id="v-curl-domains" style="font-size:0.72rem">—</span>
+      <button class="copy-btn" onclick="copyVal('v-curl-domains', this)">Copy</button>
+    </div>
+  </div>
+
+  <!-- custom domains -->
+  <div class="section-header">
+    <span class="section-label">Custom domains</span>
+    <button class="btn-primary" onclick="openModal()">+ Add domain</button>
+  </div>
+  <div id="domain-list">
+    <div class="empty-state" id="domain-empty">No custom domains connected yet.</div>
+  </div>
+</div>
+
+<!-- add domain modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-title">Connect a custom domain</div>
+    <div class="modal-sub">Point your domain at GarageOS. We'll guide you through the two DNS records needed.</div>
+
+    <div id="step-input">
+      <div class="input-group">
+        <label>Domain</label>
+        <input type="text" id="domain-input" placeholder="app.yourdomain.com">
+      </div>
+      <div class="modal-footer">
+        <button class="btn-ghost" onclick="closeModal()">Cancel</button>
+        <button class="btn-primary" id="connect-btn" onclick="connectDomain()">Connect</button>
+      </div>
+    </div>
+
+    <div class="dns-records" id="dns-records">
+      <!-- cname -->
+      <div class="dns-card">
+        <div class="dns-card-label">Record 1 — CNAME</div>
+        <div class="dns-field">
+          <span class="dns-field-key">Type</span>
+          <span class="dns-field-val">CNAME</span>
+        </div>
+        <div class="dns-field">
+          <span class="dns-field-key">Name</span>
+          <span class="dns-field-val" id="rec-cname-name">—</span>
+          <button class="copy-btn" onclick="copyVal('rec-cname-name',this)">Copy</button>
+        </div>
+        <div class="dns-field">
+          <span class="dns-field-key">Target</span>
+          <span class="dns-field-val" id="rec-cname-target">—</span>
+          <button class="copy-btn" onclick="copyVal('rec-cname-target',this)">Copy</button>
+        </div>
+        <div class="dns-field">
+          <span class="dns-field-key">Proxy</span>
+          <span class="dns-field-val">DNS only (grey cloud)</span>
+        </div>
+        <div class="dns-warn">⚠ Must NOT be proxied (orange cloud). Grey cloud only.</div>
+      </div>
+
+      <!-- txt (locked until cname detected) -->
+      <div class="txt-card-wrap" id="txt-card-wrap">
+        <div class="dns-card">
+          <div class="dns-card-label">Record 2 — TXT (unlocks after CNAME is detected)</div>
+          <div class="dns-field">
+            <span class="dns-field-key">Type</span>
+            <span class="dns-field-val">TXT</span>
+          </div>
+          <div class="dns-field">
+            <span class="dns-field-key">Name</span>
+            <span class="dns-field-val" id="rec-txt-name">waiting for CNAME…</span>
+            <button class="copy-btn" id="btn-copy-txt-name" onclick="copyVal('rec-txt-name',this)" disabled>Copy</button>
+          </div>
+          <div class="dns-field">
+            <span class="dns-field-key">Value</span>
+            <span class="dns-field-val" id="rec-txt-value">waiting for CNAME…</span>
+            <button class="copy-btn" id="btn-copy-txt-val" onclick="copyVal('rec-txt-value',this)" disabled>Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- live steps -->
+      <div class="steps-list">
+        <div class="step-item active" id="ps-cname"><div class="step-dot"></div>Waiting for CNAME</div>
+        <div class="step-item"        id="ps-txt">  <div class="step-dot"></div>Waiting for TXT ownership record</div>
+        <div class="step-item"        id="ps-ssl">  <div class="step-dot"></div>Issuing SSL certificate</div>
+        <div class="step-item"        id="ps-done"> <div class="step-dot"></div>Domain active</div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-ghost" onclick="closeModal()">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const token = localStorage.getItem('token');
+  if (!token) { window.location.href = '/login.html'; }
+
+  // ── parse JWT ─────────────────────────────────────────────────────────────
+  function parseJwt(t) {
+    try { return JSON.parse(atob(t.split('.')[1])); } catch { return {}; }
+  }
+
+  const claims = parseJwt(token);
+  const host   = window.location.hostname;
+  const sub    = host.split('.')[0];
+
+  // ── fill identity ─────────────────────────────────────────────────────────
+  document.getElementById('nav-host').textContent     = host;
+  document.getElementById('v-tenant-id').textContent  = claims.tenant_id || '—';
+  document.getElementById('v-user-id').textContent    = claims.sub       || '—';
+  document.getElementById('v-role').textContent       = claims.role      || '—';
+  document.getElementById('v-host').textContent       = host;
+  document.getElementById('v-subdomain').textContent  = sub;
+  document.getElementById('v-token').textContent      = token;
+
+  const expTs = claims.exp ? new Date(claims.exp * 1000) : null;
+  document.getElementById('v-exp').textContent = expTs
+    ? expTs.toLocaleString() + (expTs < new Date() ? ' ⚠ expired' : '')
+    : '—';
+
+  // ── fill curl commands ────────────────────────────────────────────────────
+  const base = `https://${host}`;
+  document.getElementById('v-curl-health').textContent =
+    `curl ${base}/health`;
+  document.getElementById('v-curl-auth').textContent =
+    `curl -H "Authorization: Bearer ${token}" ${base}/api/me`;
+  document.getElementById('v-curl-domains').textContent =
+    `curl -H "Authorization: Bearer ${token}" ${base}/api/domains`;
+
+  // ── live health check ─────────────────────────────────────────────────────
+  fetch(`${base}/health`)
+    .then(r => r.json())
+    .then(d => {
+      document.getElementById('v-server-res').textContent =
+        `200 OK — ${JSON.stringify(d)}`;
+      document.getElementById('v-server-res').className = 'info-val success';
+      document.getElementById('v-db').textContent  = d.db || 'reachable';
+      document.getElementById('v-db').className    = 'info-val success';
+    })
+    .catch(() => {
+      document.getElementById('v-server-res').textContent = 'unreachable';
+      document.getElementById('v-server-res').className   = 'info-val error';
+    });
+
+  // ── ssl issuer from cert (best effort) ───────────────────────────────────
+  // can't read cert from JS — show protocol instead
+  document.getElementById('v-ssl').textContent =
+    location.protocol === 'https:' ? 'TLS active (HTTPS)' : 'no TLS (HTTP)';
+  document.getElementById('v-ssl').className = location.protocol === 'https:'
+    ? 'info-val success' : 'info-val warning';
+
+  // ── load domains ──────────────────────────────────────────────────────────
+  async function loadDomains() {
+    try {
+      const res = await fetch('/api/domains', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) return;
+      const domains = await res.json();
+      const list  = document.getElementById('domain-list');
+      const empty = document.getElementById('domain-empty');
+
+      if (!domains.length) { empty.style.display = 'block'; return; }
+      empty.style.display = 'none';
+
+      domains.forEach(d => {
+        const row = document.createElement('div');
+        row.className = 'domain-row';
+        row.id = `dr-${d.id}`;
+        row.innerHTML = `
+          <span class="domain-host">${d.domain}</span>
+          <span class="badge badge-${d.status}" id="badge-${d.id}">${d.status}</span>
+        `;
+        list.appendChild(row);
+      });
+    } catch(e) { console.error(e); }
+  }
+
+  loadDomains();
+
+  // ── modal ─────────────────────────────────────────────────────────────────
+  let sseSource = null;
+  let currentDomainId = null;
+
+  function openModal() {
+    document.getElementById('modal').classList.add('open');
+    setTimeout(() => document.getElementById('domain-input').focus(), 100);
+  }
+
+  function closeModal() {
+    document.getElementById('modal').classList.remove('open');
+    if (sseSource) { sseSource.close(); sseSource = null; }
+    document.getElementById('step-input').style.display  = 'block';
+    document.getElementById('dns-records').classList.remove('show');
+    document.getElementById('domain-input').value        = '';
+    document.getElementById('connect-btn').disabled      = false;
+    document.getElementById('connect-btn').textContent   = 'Connect';
+    document.getElementById('txt-card-wrap').classList.remove('unlocked');
+    document.getElementById('rec-txt-name').textContent  = 'waiting for CNAME…';
+    document.getElementById('rec-txt-value').textContent = 'waiting for CNAME…';
+    document.getElementById('btn-copy-txt-name').disabled = true;
+    document.getElementById('btn-copy-txt-val').disabled  = true;
+    resetSteps();
+  }
+
+  function setStep(id, state) {
+    document.getElementById(id).className = `step-item ${state}`;
+  }
+
+  function resetSteps() {
+    ['ps-cname','ps-txt','ps-ssl','ps-done'].forEach(id =>
+      document.getElementById(id).className = 'step-item'
+    );
+    document.getElementById('ps-cname').classList.add('active');
+  }
+
+  async function connectDomain() {
+    const domain = document.getElementById('domain-input').value.trim().toLowerCase();
+    if (!domain || !domain.includes('.')) {
+      alert('Enter a valid domain like app.yourdomain.com'); return;
+    }
+
+    const btn = document.getElementById('connect-btn');
+    btn.disabled = true;
+    btn.textContent = 'Connecting…';
+
+    try {
+      const res = await fetch('/api/domains', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ domain })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || 'Failed'); btn.disabled = false;
+        btn.textContent = 'Connect'; return;
+      }
+
+      currentDomainId = data.id;
+      document.getElementById('step-input').style.display = 'none';
+      document.getElementById('dns-records').classList.add('show');
+
+      // CNAME name = subdomain part only
+      const parts    = domain.split('.');
+      const cnameName = parts.length > 2 ? parts.slice(0, -2).join('.') : '@';
+      document.getElementById('rec-cname-name').textContent   = cnameName;
+      document.getElementById('rec-cname-target').textContent = data.cname_target;
+
+      openDomainStream(data.id);
+
+    } catch(e) {
+      alert('Network error'); btn.disabled = false; btn.textContent = 'Connect';
+    }
+  }
+
+  function openDomainStream(domainId) {
+    if (sseSource) sseSource.close();
+    sseSource = new EventSource(`/api/domains/stream/${domainId}`);
+
+    sseSource.addEventListener('status', e => {
+      const p = e.data;
+      if (p === 'cname_verified')  { setStep('ps-cname','done'); setStep('ps-txt','active'); }
+      if (p === 'waiting_cname')   { setStep('ps-cname','active'); }
+      if (p === 'waiting_txt')     { setStep('ps-txt','active'); }
+      if (p === 'txt_verified')    { setStep('ps-txt','done');  setStep('ps-ssl','active'); }
+      if (p === 'ssl_active')      { setStep('ps-ssl','done');  setStep('ps-done','active'); }
+    });
+
+    sseSource.addEventListener('records', e => {
+      const [name, value] = e.data.split('=');
+      document.getElementById('txt-card-wrap').classList.add('unlocked');
+      document.getElementById('rec-txt-name').textContent   = name;
+      document.getElementById('rec-txt-value').textContent  = value;
+      document.getElementById('btn-copy-txt-name').disabled = false;
+      document.getElementById('btn-copy-txt-val').disabled  = false;
+      setStep('ps-cname','done');
+      setStep('ps-txt','active');
+    });
+
+    sseSource.addEventListener('done', e => {
+      sseSource.close();
+      setStep('ps-txt','done');
+      setStep('ps-ssl','done');
+      setStep('ps-done','done');
+      const badge = document.getElementById(`badge-${currentDomainId}`);
+      if (badge) { badge.className = 'badge badge-active'; badge.textContent = 'active'; }
+      else loadDomains();
+    });
+
+    sseSource.addEventListener('failed', e => {
+      sseSource.close();
+      const active = document.querySelector('.step-item.active');
+      if (active) active.className = 'step-item error';
+      alert(`Failed: ${e.data}`);
+    });
+  }
+
+  function copyVal(id, btn) {
+    navigator.clipboard.writeText(document.getElementById(id).textContent).then(() => {
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+    });
+  }
+
+  function logout() { localStorage.clear(); window.location.href = '/login.html'; }
+</script>
+</body>
 </html>

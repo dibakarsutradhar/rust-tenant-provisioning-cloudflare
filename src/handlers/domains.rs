@@ -13,7 +13,8 @@ pub struct AddDomainRequest {
 pub struct AddDomainResponse {
     pub id: Uuid,
     pub domain: String,
-    pub cname_target: String,
+    pub cname_target: String, // show immediately
+    pub cname_proxy: String,  // instruction
     pub message: String,
 }
 
@@ -44,9 +45,10 @@ pub async fn add_domain(
 
     Ok(Json(AddDomainResponse {
         id,
-        domain,
+        domain: domain.clone(),
         cname_target: format!("{tunnel_id}.cfargotunnel.com"),
-        message: "Add the CNAME record then we'll detect it automatically".into(),
+        cname_proxy: "OFF — must be grey cloud, not orange".into(),
+        message: "Step 1: add the CNAME below. Step 2: we will send the TXT record via the status stream once ready.".into(),
     }))
 }
 

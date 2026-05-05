@@ -5,5 +5,7 @@ CREATE TABLE custom_domains (
     domain          TEXT NOT NULL UNIQUE,
     status          TEXT NOT NULL DEFAULT 'pending',  -- pending | ssl_pending | active | failed
     cf_hostname_id  TEXT,                              -- cloudflare custom hostname id
+    ownership_txt_name TEXT,
+    ownership_txt_value TEXT,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
