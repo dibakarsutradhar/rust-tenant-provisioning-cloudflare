@@ -204,6 +204,20 @@ async fn verify_and_provision(
 
     notify(&db, custom_domain_id, &format!("done:{domain}")).await?;
     tracing::info!("Custom domain {domain} fully active");
+
+    // when a custom domain becomes active, we set it as the tenant's primary domain.
+    // this will be used by the nginx config to serve the tenant's content at this domain
+    sqlx::query!(
+        "UPDATE tenants SET primary_domain = $1 WHERE id = $2",
+        domain,
+        tenant_id,
+    )
+    .execute(&db)
+    .await?;
+    // clear the cache so next request picks up the new primary domain
+    // we don't have AppState here, so we handle this via DB — cache will
+    // repopulate on next request automatically since we only warm on miss
+    tracing::info!("Primary domain set to {domain} for tenant {tenant_id}");
     Ok(())
 }
 

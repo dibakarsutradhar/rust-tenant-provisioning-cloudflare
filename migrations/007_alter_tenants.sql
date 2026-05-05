@@ -1,0 +1,2 @@
+ALTER TABLE tenants
+ADD COLUMN IF NOT EXISTS primary_domain TEXT;

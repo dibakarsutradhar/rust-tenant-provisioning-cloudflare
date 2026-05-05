@@ -80,6 +80,9 @@ async fn main() {
     // index.html blocked on tenant subdomains via redirect
     let static_files = Router::new()
         .route("/index.html", get(handlers::health::block_signup))
+        .route("/dashboard.html", get(handlers::health::serve_html))
+        .route("/login.html", get(handlers::health::serve_html))
+        .route("/status.html", get(handlers::health::serve_html))
         .fallback_service(ServeDir::new("static"));
 
     let app = Router::new()

@@ -1,8 +1,8 @@
 use axum::{
     extract::{Request, State},
-    http::StatusCode,
+    http::{StatusCode, Uri},
     middleware::Next,
-    response::Response,
+    response::{IntoResponse, Redirect, Response},
 };
 use uuid::Uuid;
 
@@ -48,6 +48,11 @@ pub async fn resolve_tenant(
 
         // check in-process cache
         if let Some(tenant_id) = state.subdomain_cache.get(sub) {
+            // check if tenant has a primary custom domain
+            if let Some(primary) = get_primary_domain(&state, *tenant_id, &host).await {
+                return Ok(redirect_to(&primary, req.uri()));
+            }
+
             req.extensions_mut().insert(TenantContext {
                 tenant_id: *tenant_id,
                 subdomain: sub.clone(),
@@ -59,15 +64,19 @@ pub async fn resolve_tenant(
         match db::get_tenant_id_by_subdomain(&state.db, sub).await {
             Ok(Some(tenant_id)) => {
                 state.subdomain_cache.insert(sub.clone(), tenant_id);
+
+                // check if tenant has a primary custom domain
+                if let Some(primary) = get_primary_domain(&state, tenant_id, &host).await {
+                    return Ok(redirect_to(&primary, req.uri()));
+                }
+
                 req.extensions_mut().insert(TenantContext {
                     tenant_id,
                     subdomain: sub.clone(),
                 });
                 return Ok(next.run(req).await);
             }
-            Ok(None) => {
-                // not a known tenant subdomain — fall through to custom domain check
-            }
+            Ok(None) => {} // fall through to custom domain check
             Err(e) => {
                 tracing::error!("DB error resolving subdomain: {e}");
                 return Err(StatusCode::INTERNAL_SERVER_ERROR);
@@ -105,6 +114,50 @@ pub async fn resolve_tenant(
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
+}
+
+// check if this tenant has a primary custom domain different from current host
+async fn get_primary_domain(
+    state: &AppState,
+    tenant_id: Uuid,
+    current_host: &str,
+) -> Option<String> {
+    tracing::info!("get_primary_domain: tenant={tenant_id} current_host={current_host}"); // ← add
+
+    // check cache
+    if let Some(entry) = state.primary_domain_cache.get(&tenant_id) {
+        return match entry.value() {
+            Some(primary) if primary != current_host => Some(primary.clone()),
+            _ => None,
+        };
+    }
+
+    // query DB
+    let result = sqlx::query_scalar!(
+        "SELECT primary_domain FROM tenants WHERE id = $1",
+        tenant_id
+    )
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten()
+    .flatten();
+
+    // warm cache
+    state.primary_domain_cache.insert(tenant_id, result.clone());
+
+    match result {
+        Some(primary) if primary != current_host => Some(primary),
+        _ => None,
+    }
+}
+
+fn redirect_to(primary_domain: &str, uri: &Uri) -> Response {
+    let path_and_query = uri.path_and_query().map(|pq| pq.as_str()).unwrap_or("/");
+
+    let target = format!("https://{primary_domain}{path_and_query}");
+    tracing::info!("Redirecting to primary domain: {target}");
+    Redirect::permanent(&target).into_response()
 }
 
 fn extract_subdomain(host: &str, base_domain: &str) -> Option<String> {
