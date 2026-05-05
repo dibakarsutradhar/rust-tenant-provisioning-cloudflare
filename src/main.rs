@@ -1,4 +1,8 @@
-use axum::{Extension, Router, middleware::from_fn_with_state, routing::get};
+use axum::{
+    Extension, Router,
+    middleware::from_fn_with_state,
+    routing::{get, post},
+};
 use sqlx::postgres::PgPoolOptions;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
@@ -7,6 +11,7 @@ mod db;
 mod error;
 mod handlers;
 mod middleware;
+mod services;
 mod state;
 
 use state::AppState;
@@ -43,7 +48,9 @@ async fn main() {
         ));
 
     // public routes — no tenant resolution needed
-    let public_routes = Router::new().route("/health", get(handlers::health::health));
+    let public_routes = Router::new()
+        .route("/health", get(handlers::health::health))
+        .route("/api/register", post(handlers::auth::register));
 
     let app = Router::new()
         .merge(public_routes)

@@ -17,3 +17,5 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 dotenvy = "0.15"
 async-trait = "0.1"
 dashmap = "5"   # fast concurrent hashmap - our in-process cache
+bcrypt = "0.15"
+anyhow = "1"
