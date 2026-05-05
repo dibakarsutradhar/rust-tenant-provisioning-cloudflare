@@ -4,7 +4,7 @@ use axum::{
     routing::{get, post},
 };
 use sqlx::postgres::PgPoolOptions;
-use tower_http::trace::TraceLayer;
+use tower_http::{services::ServeDir, trace::TraceLayer};
 use tracing_subscriber::EnvFilter;
 
 mod db;
@@ -41,9 +41,9 @@ async fn main() {
 
     // routes that need tenant context
     let tenant_routes = Router::new()
-        .route("/", get(handlers::health::tenant_home))
-        .layer(from_fn(middleware::auth::require_auth))
-        .layer(from_fn_with_state(
+        .route("/api/dashboard", get(handlers::health::tenant_home))
+        .route_layer(from_fn(middleware::auth::require_auth))
+        .route_layer(from_fn_with_state(
             state.clone(),
             middleware::tenant::resolve_tenant,
         ));
@@ -58,9 +58,20 @@ async fn main() {
             get(handlers::provisioning::status_stream),
         );
 
+    // root route — serves signup or login depending on subdomain
+    let root_route = Router::new().route("/", get(handlers::health::root));
+
+    // static assets — html, css, js files
+    // index.html blocked on tenant subdomains via redirect
+    let static_files = Router::new()
+        .route("/index.html", get(handlers::health::block_signup))
+        .fallback_service(ServeDir::new("static"));
+
     let app = Router::new()
         .merge(public_routes)
         .merge(tenant_routes)
+        .merge(root_route)
+        .merge(static_files)
         .layer(Extension(state))
         .layer(TraceLayer::new_for_http());
 

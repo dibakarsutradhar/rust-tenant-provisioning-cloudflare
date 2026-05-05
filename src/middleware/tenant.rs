@@ -36,6 +36,11 @@ pub async fn resolve_tenant(
         return Ok(next.run(req).await);
     };
 
+    // app subdomain is not a tenant — skip resolution
+    if subdomain == "app" {
+        return Ok(next.run(req).await);
+    }
+
     // 1. check in-process cache first
     if let Some(tenant_id) = state.subdomain_cache.get(&subdomain) {
         req.extensions_mut().insert(TenantContext {

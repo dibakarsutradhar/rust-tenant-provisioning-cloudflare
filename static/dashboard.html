@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>GarageOS — Dashboard</title>
+		<style>
+			@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+
+			*,
+			*::before,
+			*::after {
+				box-sizing: border-box;
+				margin: 0;
+				padding: 0;
+			}
+
+			:root {
+				--bg: #0f0f0f;
+				--surface: #1a1a1a;
+				--border: #2a2a2a;
+				--accent: #e8ff47;
+				--text: #f0f0f0;
+				--muted: #888;
+			}
+
+			body {
+				font-family: 'DM Sans', sans-serif;
+				background: var(--bg);
+				color: var(--text);
+				min-height: 100vh;
+			}
+
+			nav {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: 1.25rem 2rem;
+				border-bottom: 1px solid var(--border);
+			}
+
+			.logo {
+				font-family: 'Syne', sans-serif;
+				font-weight: 800;
+				font-size: 1.25rem;
+				color: var(--accent);
+			}
+
+			.logo span {
+				color: var(--text);
+			}
+
+			.nav-right {
+				display: flex;
+				align-items: center;
+				gap: 1rem;
+				font-size: 0.875rem;
+				color: var(--muted);
+			}
+
+			.logout {
+				background: none;
+				border: 1px solid var(--border);
+				color: var(--muted);
+				padding: 0.4rem 0.85rem;
+				border-radius: 6px;
+				cursor: pointer;
+				font-family: 'DM Sans', sans-serif;
+				font-size: 0.85rem;
+				transition:
+					border-color 0.2s,
+					color 0.2s;
+			}
+
+			.logout:hover {
+				border-color: var(--text);
+				color: var(--text);
+			}
+
+			.main {
+				max-width: 900px;
+				margin: 0 auto;
+				padding: 3rem 2rem;
+			}
+
+			.welcome {
+				font-family: 'Syne', sans-serif;
+				font-weight: 700;
+				font-size: 2rem;
+				margin-bottom: 0.5rem;
+			}
+
+			.workspace-tag {
+				display: inline-block;
+				background: var(--surface);
+				border: 1px solid var(--border);
+				border-radius: 6px;
+				padding: 0.25rem 0.65rem;
+				font-family: monospace;
+				font-size: 0.8rem;
+				color: var(--accent);
+				margin-bottom: 2.5rem;
+			}
+
+			.grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+				gap: 1rem;
+				margin-bottom: 2.5rem;
+			}
+
+			.stat-card {
+				background: var(--surface);
+				border: 1px solid var(--border);
+				border-radius: 12px;
+				padding: 1.5rem;
+			}
+
+			.stat-label {
+				font-size: 0.75rem;
+				text-transform: uppercase;
+				letter-spacing: 0.05em;
+				color: var(--muted);
+				margin-bottom: 0.5rem;
+			}
+
+			.stat-value {
+				font-family: 'Syne', sans-serif;
+				font-size: 2rem;
+				font-weight: 700;
+				color: var(--accent);
+			}
+
+			.section-title {
+				font-family: 'Syne', sans-serif;
+				font-size: 1rem;
+				font-weight: 600;
+				margin-bottom: 1rem;
+				color: var(--muted);
+				text-transform: uppercase;
+				letter-spacing: 0.05em;
+			}
+
+			.empty {
+				background: var(--surface);
+				border: 1px solid var(--border);
+				border-radius: 12px;
+				padding: 3rem;
+				text-align: center;
+				color: var(--muted);
+				font-size: 0.9rem;
+			}
+
+			.tenant-info {
+				background: var(--surface);
+				border: 1px solid var(--border);
+				border-radius: 12px;
+				padding: 1.25rem 1.5rem;
+				font-size: 0.875rem;
+				display: flex;
+				flex-direction: column;
+				gap: 0.5rem;
+			}
+
+			.info-row {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+			}
+
+			.info-key {
+				color: var(--muted);
+			}
+			.info-val {
+				font-family: monospace;
+				font-size: 0.8rem;
+				color: var(--text);
+			}
+		</style>
+	</head>
+	<body>
+		<nav>
+			<div class="logo">Garage<span>OS</span></div>
+			<div class="nav-right">
+				<span id="nav-email"></span>
+				<button class="logout" onclick="logout()">Sign out</button>
+			</div>
+		</nav>
+
+		<div class="main">
+			<h1 class="welcome">Good to see you 👋</h1>
+			<div class="workspace-tag" id="workspace-tag"></div>
+
+			<div class="grid">
+				<div class="stat-card">
+					<div class="stat-label">Work orders</div>
+					<div class="stat-value">0</div>
+				</div>
+				<div class="stat-card">
+					<div class="stat-label">Vehicles</div>
+					<div class="stat-value">0</div>
+				</div>
+				<div class="stat-card">
+					<div class="stat-label">Customers</div>
+					<div class="stat-value">0</div>
+				</div>
+				<div class="stat-card">
+					<div class="stat-label">Technicians</div>
+					<div class="stat-value">0</div>
+				</div>
+			</div>
+
+			<p class="section-title">Workspace info</p>
+			<div class="tenant-info">
+				<div class="info-row">
+					<span class="info-key">Tenant ID</span>
+					<span class="info-val" id="info-tenant-id">—</span>
+				</div>
+				<div class="info-row">
+					<span class="info-key">Role</span>
+					<span class="info-val" id="info-role">—</span>
+				</div>
+				<div class="info-row">
+					<span class="info-key">Domain</span>
+					<span class="info-val" id="info-domain">—</span>
+				</div>
+			</div>
+		</div>
+
+		<script>
+			const token = localStorage.getItem('token');
+			if (!token) {
+				window.location.href = '/login.html';
+			}
+
+			// decode JWT payload (no verification — just for display)
+			function parseJwt(t) {
+				try {
+					return JSON.parse(atob(t.split('.')[1]));
+				} catch {
+					return {};
+				}
+			}
+
+			const claims = parseJwt(token);
+			const host = window.location.hostname;
+
+			document.getElementById('workspace-tag').textContent = host;
+			document.getElementById('info-tenant-id').textContent =
+				claims.tenant_id || '—';
+			document.getElementById('info-role').textContent = claims.role || '—';
+			document.getElementById('info-domain').textContent = host;
+
+			// verify token is still valid against the server
+			fetch('/', {
+				headers: { Authorization: `Bearer ${token}` },
+			}).then((res) => {
+				if (res.status === 401) {
+					localStorage.clear();
+					window.location.href = '/login.html';
+				}
+			});
+
+			function logout() {
+				localStorage.clear();
+				window.location.href = '/login.html';
+			}
+		</script>
+	</body>
+</html>

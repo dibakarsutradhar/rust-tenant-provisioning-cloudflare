@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GarageOS — Setting up your workspace</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --border: #2a2a2a;
+      --accent: #e8ff47;
+      --text: #f0f0f0;
+      --muted: #888;
+      --error: #ff5c5c;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 2rem;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 420px;
+      text-align: center;
+    }
+
+    .logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 1.5rem;
+      color: var(--accent);
+      margin-bottom: 3rem;
+    }
+
+    .logo span { color: var(--text); }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 2rem;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    h1 {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 1.6rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.6;
+      margin-bottom: 2.5rem;
+    }
+
+    .steps {
+      text-align: left;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.875rem;
+      color: var(--muted);
+      transition: color 0.3s;
+    }
+
+    .step.done { color: var(--text); }
+    .step.active { color: var(--accent); }
+
+    .step-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--border);
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+
+    .step.done .step-dot { background: var(--accent); }
+    .step.active .step-dot {
+      background: var(--accent);
+      box-shadow: 0 0 6px var(--accent);
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    .domain-badge {
+      display: inline-block;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.35rem 0.75rem;
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: var(--accent);
+      margin-top: 1.5rem;
+    }
+
+    .error-msg {
+      color: var(--error);
+      font-size: 0.875rem;
+      margin-top: 1.5rem;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">Garage<span>OS</span></div>
+    <div class="spinner" id="spinner"></div>
+    <h1>Setting up your workspace</h1>
+    <p class="subtitle">This takes about 10 seconds.<br>Don't close this tab.</p>
+
+    <div class="steps">
+      <div class="step active" id="step-dns">
+        <div class="step-dot"></div> Creating your subdomain
+      </div>
+      <div class="step" id="step-ssl">
+        <div class="step-dot"></div> Securing with SSL
+      </div>
+      <div class="step" id="step-db">
+        <div class="step-dot"></div> Initializing your workspace
+      </div>
+      <div class="step" id="step-ready">
+        <div class="step-dot"></div> Almost ready
+      </div>
+    </div>
+
+    <div class="domain-badge" id="domain" style="display:none"></div>
+    <p class="error-msg" id="error"></p>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const tenantId = params.get('tenant_id');
+
+    if (!tenantId) {
+      window.location.href = '/';
+    }
+
+    // animate steps while waiting
+    const steps = ['step-dns', 'step-ssl', 'step-db', 'step-ready'];
+    let currentStep = 0;
+
+    const stepTimer = setInterval(() => {
+      if (currentStep < steps.length - 1) {
+        document.getElementById(steps[currentStep]).className = 'step done';
+        currentStep++;
+        document.getElementById(steps[currentStep]).className = 'step active';
+      }
+    }, 1800);
+
+    // open SSE stream
+    const es = new EventSource(`/api/provisioning/stream/${tenantId}`);
+
+    es.addEventListener('done', function(e) {
+      clearInterval(stepTimer);
+      es.close();
+
+      // mark all steps done
+      steps.forEach(s => document.getElementById(s).className = 'step done');
+
+      // hide spinner
+      document.getElementById('spinner').style.display = 'none';
+
+      const subdomain = e.data;
+      const url = `https://${subdomain}.thegarageos.com/login.html`;
+
+      document.getElementById('domain').textContent = `${subdomain}.thegarageos.com`;
+      document.getElementById('domain').style.display = 'inline-block';
+
+      // redirect after short delay so user sees it
+      setTimeout(() => { window.location.href = url; }, 1500);
+    });
+
+    es.addEventListener('failed', function() {
+      clearInterval(stepTimer);
+      es.close();
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('error').textContent = 'Provisioning failed — please try again.';
+      document.getElementById('error').style.display = 'block';
+    });
+
+    es.onerror = function() {
+      // SSE reconnects automatically — only show error if tenant_id was wrong
+    };
+  </script>
+</body>
+</html>
