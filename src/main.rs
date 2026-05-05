@@ -1,6 +1,6 @@
 use axum::{
     Extension, Router,
-    middleware::from_fn_with_state,
+    middleware::{from_fn, from_fn_with_state},
     routing::{get, post},
 };
 use sqlx::postgres::PgPoolOptions;
@@ -42,7 +42,8 @@ async fn main() {
     // routes that need tenant context
     let tenant_routes = Router::new()
         .route("/", get(handlers::health::tenant_home))
-        .route_layer(from_fn_with_state(
+        .layer(from_fn(middleware::auth::require_auth))
+        .layer(from_fn_with_state(
             state.clone(),
             middleware::tenant::resolve_tenant,
         ));
@@ -51,6 +52,7 @@ async fn main() {
     let public_routes = Router::new()
         .route("/health", get(handlers::health::health))
         .route("/api/register", post(handlers::auth::register))
+        .route("/api/login", post(handlers::auth::login))
         .route(
             "/api/provisioning/stream/:tenant_id",
             get(handlers::provisioning::status_stream),

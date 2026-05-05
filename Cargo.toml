@@ -21,3 +21,4 @@ dashmap = "5"   # fast concurrent hashmap - our in-process cache
 bcrypt = "0.15"
 anyhow = "1"
 futures = "0.3.32"
+jsonwebtoken = "9"

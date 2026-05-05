@@ -1,6 +1,8 @@
-use crate::{db, error::AppError, state::AppState};
 use axum::{Extension, Json};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+use crate::{db, error::AppError, services, state::AppState};
 
 #[derive(Deserialize)]
 pub struct RegisterRequest {
@@ -55,5 +57,56 @@ pub async fn register(
     Ok(Json(RegisterResponse {
         tenant_id: tenant_id.to_string(),
         message: format!("provisioning started — poll /api/provisioning/status/{tenant_id}"),
+    }))
+}
+
+// ── login ──────────────────────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+pub struct LoginRequest {
+    pub email: String,
+    pub password: String,
+}
+
+#[derive(Serialize)]
+pub struct LoginResponse {
+    pub token: String,
+    pub tenant_id: Uuid,
+    pub role: String,
+}
+
+pub async fn login(
+    Extension(state): Extension<AppState>,
+    Json(body): Json<LoginRequest>,
+) -> Result<Json<LoginResponse>, AppError> {
+    // find user by email — we need subdomain from Host header ideally,
+    // but for MVP we find by email globally (emails are unique per tenant)
+    let user = sqlx::query!(
+        "SELECT u.id, u.tenant_id, u.password_hash, u.role
+         FROM users u
+         JOIN tenants t ON t.id = u.tenant_id
+         WHERE u.email = $1 AND t.status = 'active'",
+        body.email,
+    )
+    .fetch_optional(&state.db)
+    .await?
+    .ok_or_else(|| AppError::BadRequest("invalid email or password".into()))?;
+
+    // verify password
+    let valid = bcrypt::verify(&body.password, &user.password_hash)
+        .map_err(|e| AppError::BadRequest(e.to_string()))?;
+
+    if !valid {
+        return Err(AppError::BadRequest("invalid email or password".into()));
+    }
+
+    // issue JWT
+    let token = services::jwt::issue(user.id, user.tenant_id, &user.role)
+        .map_err(|e| AppError::BadRequest(e.to_string()))?;
+
+    Ok(Json(LoginResponse {
+        token,
+        tenant_id: user.tenant_id,
+        role: user.role,
     }))
 }
