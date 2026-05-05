@@ -1,0 +1,7 @@
+{
+	"accessibility.verbosity.inlineCompletions": false,
+	"editor.inlineSuggest.edits.allowCodeShifting": "never",
+	"editor.inlineSuggest.edits.renderSideBySide": "never",
+	"editor.inlineSuggest.edits.showLongDistanceHint": false,
+	"editor.inlineSuggest.enabled": false
+}
