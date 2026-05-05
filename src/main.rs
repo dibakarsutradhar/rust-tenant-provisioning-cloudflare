@@ -50,7 +50,11 @@ async fn main() {
     // public routes — no tenant resolution needed
     let public_routes = Router::new()
         .route("/health", get(handlers::health::health))
-        .route("/api/register", post(handlers::auth::register));
+        .route("/api/register", post(handlers::auth::register))
+        .route(
+            "/api/provisioning/stream/:tenant_id",
+            get(handlers::provisioning::status_stream),
+        );
 
     let app = Router::new()
         .merge(public_routes)
