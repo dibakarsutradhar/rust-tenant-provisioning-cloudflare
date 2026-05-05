@@ -41,6 +41,7 @@ async fn main() {
 
     // routes that need tenant context
     let tenant_routes = Router::new()
+        .route("/api/me", get(handlers::auth::me))
         .route("/api/dashboard", get(handlers::health::tenant_home))
         .route("/api/domains", post(handlers::domains::add_domain))
         .route("/api/domains", get(handlers::domains::list_domains))

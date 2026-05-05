@@ -2,7 +2,7 @@ use axum::{Extension, Json};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{db, error::AppError, services, state::AppState};
+use crate::{db, error::AppError, middleware::tenant::TenantContext, services, state::AppState};
 
 #[derive(Deserialize)]
 pub struct RegisterRequest {
@@ -77,6 +77,7 @@ pub struct LoginResponse {
 
 pub async fn login(
     Extension(state): Extension<AppState>,
+    headers: axum::http::HeaderMap,
     Json(body): Json<LoginRequest>,
 ) -> Result<Json<LoginResponse>, AppError> {
     // find user by email — we need subdomain from Host header ideally,
@@ -100,6 +101,53 @@ pub async fn login(
         return Err(AppError::BadRequest("invalid email or password".into()));
     }
 
+    // extract request metadata
+    let ip = headers
+        .get("cf-connecting-ip") // real IP from Cloudflare
+        .or_else(|| headers.get("x-forwarded-for")) // fallback
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.split(',').next().unwrap_or(s).trim().to_string());
+
+    let country = headers
+        .get("cf-ipcountry")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
+
+    let city = headers
+        .get("cf-ipcity")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
+
+    let cf_ray = headers
+        .get("cf-ray")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
+
+    let user_agent = headers
+        .get("user-agent")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
+
+    let (browser, os, device) = parse_ua(user_agent.as_deref().unwrap_or(""));
+
+    // store session
+    sqlx::query!(
+        "INSERT INTO sessions (tenant_id, user_id, ip, country, city, user_agent, browser, os, device, cf_ray)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+        user.tenant_id,
+        user.id,
+        ip,
+        country,
+        city,
+        user_agent,
+        browser,
+        os,
+        device,
+        cf_ray,
+    )
+    .execute(&state.db)
+    .await?;
+
     // issue JWT
     let token = services::jwt::issue(user.id, user.tenant_id, &user.role)
         .map_err(|e| AppError::BadRequest(e.to_string()))?;
@@ -108,5 +156,95 @@ pub async fn login(
         token,
         tenant_id: user.tenant_id,
         role: user.role,
+    }))
+}
+
+fn parse_ua(ua: &str) -> (String, String, String) {
+    // browser
+    let browser = if ua.contains("Edg/") {
+        "Edge"
+    } else if ua.contains("Chrome/") && !ua.contains("Chromium") {
+        "Chrome"
+    } else if ua.contains("Firefox/") {
+        "Firefox"
+    } else if ua.contains("Safari/") && !ua.contains("Chrome") {
+        "Safari"
+    } else if ua.contains("OPR/") || ua.contains("Opera/") {
+        "Opera"
+    } else {
+        "Unknown"
+    };
+
+    // OS
+    let os = if ua.contains("Windows NT") {
+        "Windows"
+    } else if ua.contains("Mac OS X") {
+        "macOS"
+    } else if ua.contains("Android") {
+        "Android"
+    } else if ua.contains("iPhone") || ua.contains("iPad") {
+        "iOS"
+    } else if ua.contains("Linux") {
+        "Linux"
+    } else {
+        "Unknown"
+    };
+
+    // device
+    let device = if ua.contains("Mobile") || ua.contains("Android") || ua.contains("iPhone") {
+        "Mobile"
+    } else if ua.contains("iPad") || ua.contains("Tablet") {
+        "Tablet"
+    } else {
+        "Desktop"
+    };
+
+    (browser.to_string(), os.to_string(), device.to_string())
+}
+
+// ── me ──────────────────────────────────────────────────────────────────
+
+#[derive(Serialize)]
+pub struct MeResponse {
+    pub tenant_id: uuid::Uuid,
+    pub user_id: uuid::Uuid,
+    pub role: String,
+    pub last_session: Option<SessionInfo>,
+}
+
+#[derive(Serialize)]
+pub struct SessionInfo {
+    pub ip: Option<String>,
+    pub country: Option<String>,
+    pub city: Option<String>,
+    pub browser: Option<String>,
+    pub os: Option<String>,
+    pub device: Option<String>,
+    pub cf_ray: Option<String>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+pub async fn me(
+    Extension(state): Extension<AppState>,
+    Extension(ctx): Extension<TenantContext>,
+    Extension(claims): Extension<crate::services::jwt::Claims>,
+) -> Result<Json<MeResponse>, AppError> {
+    let session = sqlx::query_as!(
+        SessionInfo,
+        "SELECT ip, country, city, browser, os, device, cf_ray, created_at
+         FROM sessions
+         WHERE user_id = $1
+         ORDER BY created_at DESC
+         LIMIT 1",
+        claims.sub,
+    )
+    .fetch_optional(&state.db)
+    .await?;
+
+    Ok(Json(MeResponse {
+        tenant_id: ctx.tenant_id,
+        user_id: claims.sub,
+        role: claims.role.clone(),
+        last_session: session,
     }))
 }
