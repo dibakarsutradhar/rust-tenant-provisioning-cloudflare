@@ -20,12 +20,37 @@ pub struct RegisterResponse {
 
 pub async fn register(
     Extension(state): Extension<AppState>,
+    headers: axum::http::HeaderMap,
     Json(body): Json<RegisterRequest>,
 ) -> Result<Json<RegisterResponse>, AppError> {
+    // get IP from Cloudflare header
+    let ip = headers
+        .get("cf-connecting-ip")
+        .or_else(|| headers.get("x-forwarded-for"))
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.split(',').next().unwrap_or(s).trim().to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+
+    // rate limit — 5 registrations per IP per hour
+    crate::services::rate_limit::check_register(&state.db, &ip)
+        .await
+        .map_err(|e| AppError::RateLimit(e))?;
+
     // basic validation
     let subdomain = body.subdomain.trim().to_lowercase();
     if subdomain.is_empty() || subdomain.contains('.') {
         return Err(AppError::BadRequest("invalid subdomain".into()));
+    }
+
+    if BLOCKED_SUBDOMAINS.contains(&subdomain.as_str()) {
+        return Err(AppError::BadRequest("subdomain not available".into()));
+    }
+
+    // also block subdomains shorter than 3 chars or longer than 32
+    if subdomain.len() < 3 || subdomain.len() > 32 {
+        return Err(AppError::BadRequest(
+            "subdomain must be between 3 and 32 characters".into(),
+        ));
     }
 
     // hash password
@@ -80,6 +105,17 @@ pub async fn login(
     headers: axum::http::HeaderMap,
     Json(body): Json<LoginRequest>,
 ) -> Result<Json<LoginResponse>, AppError> {
+    let ip = headers
+        .get("cf-connecting-ip")
+        .or_else(|| headers.get("x-forwarded-for"))
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.split(',').next().unwrap_or(s).trim().to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+
+    crate::services::rate_limit::check_login(&state.db, &ip)
+        .await
+        .map_err(|e| AppError::RateLimit(e))?;
+
     // find user by email — we need subdomain from Host header ideally,
     // but for MVP we find by email globally (emails are unique per tenant)
     let user = sqlx::query!(
@@ -248,3 +284,68 @@ pub async fn me(
         last_session: session,
     }))
 }
+
+const BLOCKED_SUBDOMAINS: &[&str] = &[
+    // system
+    "app",
+    "api",
+    "admin",
+    "www",
+    "mail",
+    "smtp",
+    "ftp",
+    "ssh",
+    "dev",
+    "staging",
+    "prod",
+    "production",
+    "test",
+    "demo",
+    "static",
+    "assets",
+    "cdn",
+    "media",
+    "img",
+    "images",
+    "status",
+    "health",
+    "metrics",
+    "monitor",
+    "dashboard",
+    "auth",
+    "login",
+    "logout",
+    "signup",
+    "register",
+    "billing",
+    "pay",
+    "payment",
+    "invoice",
+    "pricing",
+    "docs",
+    "help",
+    "support",
+    "blog",
+    "about",
+    "contact",
+    "careers",
+    "jobs",
+    "legal",
+    "privacy",
+    "terms",
+    // brands
+    "google",
+    "apple",
+    "microsoft",
+    "amazon",
+    "facebook",
+    "meta",
+    "twitter",
+    "instagram",
+    "github",
+    "stripe",
+    // your own
+    "thegarageos",
+    "garageos",
+    "garage",
+];

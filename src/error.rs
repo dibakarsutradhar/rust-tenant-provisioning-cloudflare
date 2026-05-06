@@ -10,6 +10,7 @@ pub enum AppError {
     Database(sqlx::Error),
     NotFound(String),
     BadRequest(String),
+    RateLimit(String),
 }
 
 impl IntoResponse for AppError {
@@ -24,6 +25,7 @@ impl IntoResponse for AppError {
             }
             AppError::NotFound(msg) => (StatusCode::NOT_FOUND, msg),
             AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg),
+            AppError::RateLimit(msg) => (StatusCode::TOO_MANY_REQUESTS, msg),
         };
         (status, Json(json!({ "error": message }))).into_response()
     }
