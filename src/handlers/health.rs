@@ -31,12 +31,12 @@ pub async fn root(Extension(state): Extension<AppState>, req: Request) -> Respon
         .next()
         .unwrap_or("");
 
-    let suffix = format!(".{}", state.base_domain);
+    let suffix = format!(".{}", state.config.base_domain);
 
     if host.ends_with(&suffix) {
         let sub = &host[..host.len() - suffix.len()];
 
-        if sub == "app" {
+        if sub == state.config.app_subdomain {
             // app.thegarageos.com → signup
             let html = tokio::fs::read_to_string("static/index.html")
                 .await
@@ -79,7 +79,7 @@ pub async fn root(Extension(state): Extension<AppState>, req: Request) -> Respon
 }
 
 // blocks signup page on tenant subdomains
-pub async fn block_signup(req: Request) -> Response {
+pub async fn block_signup(Extension(state): Extension<AppState>, req: Request) -> Response {
     let host = req
         .headers()
         .get("host")
@@ -88,7 +88,7 @@ pub async fn block_signup(req: Request) -> Response {
 
     let subdomain = host.split('.').next().unwrap_or("");
 
-    if subdomain == "app" {
+    if subdomain == state.config.app_subdomain {
         let html = tokio::fs::read_to_string("static/index.html")
             .await
             .unwrap_or_else(|_| "<h1>404</h1>".to_string());
@@ -111,11 +111,11 @@ pub async fn serve_html(Extension(state): Extension<AppState>, req: Request) -> 
         .unwrap_or("");
 
     let path = req.uri().path().to_string();
-    let suffix = format!(".{}", state.base_domain);
+    let suffix = format!(".{}", state.config.base_domain);
 
     if host.ends_with(&suffix) {
         let sub = &host[..host.len() - suffix.len()];
-        if sub != "app" && !sub.is_empty() {
+        if sub != state.config.app_subdomain && !sub.is_empty() {
             if let Ok(Some(tenant_id)) = db::get_tenant_id_by_subdomain(&state.db, sub).await {
                 let primary = sqlx::query_scalar!(
                     "SELECT primary_domain FROM tenants WHERE id = $1",

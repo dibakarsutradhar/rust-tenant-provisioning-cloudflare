@@ -2,6 +2,8 @@ use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode}
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::config::Config;
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
     pub sub: Uuid, // user_id
@@ -10,11 +12,14 @@ pub struct Claims {
     pub exp: usize, // expiry timestamp
 }
 
-pub fn issue(user_id: Uuid, tenant_id: Uuid, role: &str) -> Result<String, String> {
-    let secret = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
-
+pub fn issue(
+    config: &Config,
+    user_id: Uuid,
+    tenant_id: Uuid,
+    role: &str,
+) -> Result<String, String> {
     let exp = chrono::Utc::now()
-        .checked_add_signed(chrono::Duration::days(7))
+        .checked_add_signed(chrono::Duration::days(config.jwt_expiry_days))
         .unwrap()
         .timestamp() as usize;
 
@@ -28,17 +33,15 @@ pub fn issue(user_id: Uuid, tenant_id: Uuid, role: &str) -> Result<String, Strin
     encode(
         &Header::default(),
         &claims,
-        &EncodingKey::from_secret(secret.as_bytes()),
+        &EncodingKey::from_secret(config.jwt_secret.as_bytes()),
     )
     .map_err(|e| e.to_string())
 }
 
-pub fn verify(token: &str) -> Result<Claims, String> {
-    let secret = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
-
+pub fn verify(config: &Config, token: &str) -> Result<Claims, String> {
     decode::<Claims>(
         token,
-        &DecodingKey::from_secret(secret.as_bytes()),
+        &DecodingKey::from_secret(config.jwt_secret.as_bytes()),
         &Validation::default(),
     )
     .map(|data| data.claims)

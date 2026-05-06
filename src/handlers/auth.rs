@@ -32,7 +32,7 @@ pub async fn register(
         .unwrap_or_else(|| "unknown".to_string());
 
     // rate limit — 5 registrations per IP per hour
-    crate::services::rate_limit::check_register(&state.db, &ip)
+    crate::services::rate_limit::check_register(&state.db, &state.config, &ip)
         .await
         .map_err(|e| AppError::RateLimit(e))?;
 
@@ -74,9 +74,9 @@ pub async fn register(
 
     // spawn provisioning task — fire and forget
     let db_clone = state.db.clone();
-    let sub_clone = subdomain.clone();
+    let config = state.config.clone();
     tokio::spawn(async move {
-        crate::services::provisioning::run(db_clone, tenant_id, sub_clone).await;
+        crate::services::provisioning::run(db_clone, config, tenant_id, subdomain).await;
     });
 
     Ok(Json(RegisterResponse {
@@ -112,7 +112,7 @@ pub async fn login(
         .map(|s| s.split(',').next().unwrap_or(s).trim().to_string())
         .unwrap_or_else(|| "unknown".to_string());
 
-    crate::services::rate_limit::check_login(&state.db, &ip)
+    crate::services::rate_limit::check_login(&state.db, &state.config, &ip)
         .await
         .map_err(|e| AppError::RateLimit(e))?;
 
@@ -185,7 +185,7 @@ pub async fn login(
     .await?;
 
     // issue JWT
-    let token = services::jwt::issue(user.id, user.tenant_id, &user.role)
+    let token = services::jwt::issue(&state.config, user.id, user.tenant_id, &user.role)
         .map_err(|e| AppError::BadRequest(e.to_string()))?;
 
     Ok(Json(LoginResponse {

@@ -31,18 +31,18 @@ pub async fn resolve_tenant(
         .unwrap_or("")
         .to_owned();
 
-    let subdomain = extract_subdomain(&host, &state.base_domain);
+    let subdomain = extract_subdomain(&host, &state.config.base_domain);
 
     // path resolution flow ->
-    // host = ggdhaka.thegarageos.com  → path 1 → tenants table
+    // host = demo.thegarageos.com  → path 1 → tenants table
     // host = app.thegarageos.com      → path 1 → skip (app)
-    // host = app.ggdhaka.com          → path 1 misses → path 2 → custom_domains table
+    // host = app.demo.com          → path 1 misses → path 2 → custom_domains table
     // host = thegarageos.com          → no subdomain → skip
 
     // ── path 1: known subdomain of thegarageos.com ──────────────────────────
     if let Some(ref sub) = subdomain {
         // app subdomain is not a tenant
-        if sub == "app" {
+        if sub == state.config.app_subdomain.as_str() {
             return Ok(next.run(req).await);
         }
 

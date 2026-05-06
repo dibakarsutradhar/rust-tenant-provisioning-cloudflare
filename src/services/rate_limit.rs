@@ -1,11 +1,25 @@
 use sqlx::PgPool;
 
-pub async fn check_register(db: &PgPool, ip: &str) -> Result<(), String> {
-    check(db, &format!("register:{ip}"), 5, 3600).await
+use crate::config::Config;
+
+pub async fn check_register(db: &PgPool, config: &Config, ip: &str) -> Result<(), String> {
+    check(
+        db,
+        &format!("register:{ip}"),
+        config.rate_limit_register_max,
+        config.rate_limit_register_window,
+    )
+    .await
 }
 
-pub async fn check_login(db: &PgPool, ip: &str) -> Result<(), String> {
-    check(db, &format!("login:{ip}"), 10, 300).await
+pub async fn check_login(db: &PgPool, config: &Config, ip: &str) -> Result<(), String> {
+    check(
+        db,
+        &format!("login:{ip}"),
+        config.rate_limit_login_max,
+        config.rate_limit_login_window,
+    )
+    .await
 }
 
 async fn check(db: &PgPool, key: &str, max: i32, window_secs: i64) -> Result<(), String> {

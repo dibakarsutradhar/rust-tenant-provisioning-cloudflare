@@ -1,12 +1,13 @@
 use axum::{
     Extension, Router,
-    middleware::{from_fn, from_fn_with_state},
-    routing::{get, post},
+    middleware::from_fn_with_state,
+    routing::{delete, get, post},
 };
 use sqlx::postgres::PgPoolOptions;
 use tower_http::{services::ServeDir, trace::TraceLayer};
 use tracing_subscriber::EnvFilter;
 
+mod config;
 mod db;
 mod error;
 mod handlers;
@@ -14,30 +15,33 @@ mod middleware;
 mod services;
 mod state;
 
+use config::Config;
 use state::AppState;
 
 #[tokio::main]
-async fn main() {
-    // load .env
-    dotenvy::dotenv().ok();
+async fn main() -> anyhow::Result<()> {
+    // load configuration
+    let config = Config::from_env()?;
 
-    // logging
     tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+        )
         .init();
 
     // db pool
-    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-
     let db = PgPoolOptions::new()
-        .max_connections(5)
-        .connect(&database_url)
+        .max_connections(config.db_max_connections)
+        .connect(&config.database_url)
         .await
         .expect("Failed to connect to Postgres");
 
     tracing::info!("Connected to Postgres");
+    tracing::info!("Base domain: {}", config.base_domain);
+    tracing::info!("App URL: {}", config.app_base_url());
+    tracing::info!("Mock Cloudflare: {}", config.mock_cloudflare);
 
-    let state = AppState::new(db);
+    let state = AppState::new(db, config.clone());
 
     // routes that need tenant context
     let tenant_routes = Router::new()
@@ -45,7 +49,19 @@ async fn main() {
         .route("/api/dashboard", get(handlers::health::tenant_home))
         .route("/api/domains", post(handlers::domains::add_domain))
         .route("/api/domains", get(handlers::domains::list_domains))
-        .route_layer(from_fn(middleware::auth::require_auth))
+        .route("/api/domains/:id", delete(handlers::domains::delete_domain))
+        .route(
+            "/api/domains/:id/status",
+            get(handlers::domains::domain_status),
+        )
+        .route(
+            "/api/domains/:id/verify",
+            post(handlers::domains::verify_domain),
+        )
+        .route_layer(from_fn_with_state(
+            state.clone(),
+            middleware::auth::require_auth,
+        ))
         .route_layer(from_fn_with_state(
             state.clone(),
             middleware::tenant::resolve_tenant,
@@ -93,8 +109,9 @@ async fn main() {
         .layer(Extension(state))
         .layer(TraceLayer::new_for_http());
 
-    let addr = "0.0.0.0:8080";
+    let addr = format!("{}:{}", config.host, config.port);
     tracing::info!("Listening on {addr}");
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    axum::serve(listener, app).await?;
+    Ok(())
 }

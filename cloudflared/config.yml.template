@@ -1,0 +1,11 @@
+tunnel: {{CLOUDFLARE_TUNNEL_NAME}}
+credentials-file: {{HOME}}/.cloudflared/{{CLOUDFLARE_TUNNEL_ID}}.json
+
+ingress:
+  - hostname: {{APP_SUBDOMAIN}}.{{BASE_DOMAIN}}
+    service: http://{{LOCAL_IP}}:{{NGINX_PORT}}
+
+  - hostname: "*.{{BASE_DOMAIN}}"
+    service: http://{{LOCAL_IP}}:{{NGINX_PORT}}
+
+  - service: http://{{LOCAL_IP}}:{{NGINX_PORT}}

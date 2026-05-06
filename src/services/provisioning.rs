@@ -2,29 +2,33 @@ use anyhow::anyhow;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::db;
+use crate::{config::Config, db};
 
-pub async fn run(db: PgPool, tenant_id: Uuid, subdomain: String) {
+pub async fn run(db: PgPool, config: Config, tenant_id: Uuid, subdomain: String) {
     tracing::info!("Provisioning started for {subdomain}");
 
-    if let Err(e) = provision(db, tenant_id, subdomain.clone()).await {
+    if let Err(e) = provision(db, config, tenant_id, subdomain.clone()).await {
         tracing::error!("Provisioning failed for {subdomain}: {e}");
     }
 }
 
-async fn provision(db: PgPool, tenant_id: Uuid, subdomain: String) -> Result<(), anyhow::Error> {
+async fn provision(
+    db: PgPool,
+    config: Config,
+    tenant_id: Uuid,
+    subdomain: String,
+) -> Result<(), anyhow::Error> {
     // cloudflare DNS (mocked for MVP)
-    let mock = std::env::var("MOCK_CLOUDFLARE").unwrap_or_default() == "true";
-    if mock {
+    if config.mock_cloudflare {
         tracing::info!("[mock] DNS record created for {subdomain}");
         // simulate network delay
         tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
     } else {
-        create_cloudflare_dns(&subdomain).await?;
+        create_cloudflare_dns(&config, &subdomain).await?;
     }
 
     // SSL (not needed with Cloudflare Tunnel — proxied CNAMEs get SSL automatically)
-    if mock {
+    if config.mock_cloudflare {
         tracing::info!("[mock] SSL cert issued for {subdomain}");
         tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
     }
@@ -61,14 +65,12 @@ async fn provision(db: PgPool, tenant_id: Uuid, subdomain: String) -> Result<(),
     Ok(())
 }
 
-async fn create_cloudflare_dns(subdomain: &str) -> Result<(), anyhow::Error> {
-    let token = std::env::var("CLOUDFLARE_API_TOKEN")?;
-    let zone_id = std::env::var("CLOUDFLARE_ZONE_ID")?;
-    let tunnel_id = std::env::var("CLOUDFLARE_TUNNEL_ID")?;
-    let base_domain =
-        std::env::var("BASE_DOMAIN").unwrap_or_else(|_| "thegarageos.com".to_string());
+async fn create_cloudflare_dns(config: &Config, subdomain: &str) -> Result<(), anyhow::Error> {
+    let token = config.cloudflare_api_token.clone();
+    let zone_id = config.cloudflare_zone_id.clone();
+    let tunnel_id = config.cloudflare_tunnel_id.clone();
 
-    let fqdn = format!("{subdomain}.{base_domain}");
+    let fqdn = format!("{subdomain}.{}", config.base_domain);
     let url = format!("https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records");
 
     let body = serde_json::json!({
@@ -77,7 +79,7 @@ async fn create_cloudflare_dns(subdomain: &str) -> Result<(), anyhow::Error> {
         "content": format!("{tunnel_id}.cfargotunnel.com"),
         "ttl":     3600,
         "proxied": true,
-        "comment": format!("garageos tenant: {subdomain}")
+        "comment": format!("{} tenant: {subdomain}", config.base_domain.as_str())
     });
 
     let client = reqwest::Client::new();

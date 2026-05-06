@@ -1,2 +1,12 @@
-/target
+# Rust
+target/
+
+# Environment variables
 .env
+.env.local
+
+# Cloudflared config (generated)
+cloudflared/config.yml
+
+# System
+.DS_Store

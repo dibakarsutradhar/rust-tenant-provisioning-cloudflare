@@ -3,7 +3,7 @@
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>GarageOS — Dashboard</title>
+		<title>Rust Tenant Provisioner — Dashboard</title>
 		<style>
 			@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
 
@@ -516,7 +516,7 @@
 	</head>
 	<body>
 		<nav>
-			<div class="logo">Garage<span>OS</span></div>
+			<div class="logo" id="nav-logo">—</div>
 			<div class="nav-right">
 				<span class="pill" id="nav-host"></span>
 				<button class="btn-ghost" onclick="logout()">Sign out</button>
@@ -697,6 +697,110 @@
 					No custom domains connected yet.
 				</div>
 			</div>
+
+			<!-- domain detail panel -->
+			<div id="domain-detail" style="display: none">
+				<div class="info-card" style="margin-top: 0.75rem">
+					<div class="info-card-header">
+						<div class="dot orange"></div>
+						<span id="detail-domain-name">—</span>
+						<span class="badge" id="detail-badge" style="margin-left: auto"
+							>—</span
+						>
+					</div>
+
+					<div class="info-row">
+						<span class="info-key">SSL status</span>
+						<span class="info-val" id="detail-ssl-status">—</span>
+					</div>
+					<div class="info-row">
+						<span class="info-key">Certificate authority</span>
+						<span class="info-val" id="detail-ssl-ca">—</span>
+					</div>
+					<div class="info-row">
+						<span class="info-key">Ownership TXT name</span>
+						<span
+							class="info-val"
+							id="detail-txt-name"
+							style="font-size: 0.75rem"
+							>—</span
+						>
+						<button class="copy-btn" onclick="copyVal('detail-txt-name', this)">
+							Copy
+						</button>
+					</div>
+					<div class="info-row">
+						<span class="info-key">Ownership TXT value</span>
+						<span
+							class="info-val"
+							id="detail-txt-value"
+							style="font-size: 0.75rem"
+							>—</span
+						>
+						<button
+							class="copy-btn"
+							onclick="copyVal('detail-txt-value', this)"
+						>
+							Copy
+						</button>
+					</div>
+					<div class="info-row">
+						<span class="info-key">Verification errors</span>
+						<span class="info-val error" id="detail-errors">none</span>
+					</div>
+
+					<!-- ACME challenges -->
+					<div
+						id="detail-acme"
+						style="
+							padding: 0.85rem 1.25rem;
+							border-top: 1px solid var(--border);
+						"
+					>
+						<div
+							style="
+								font-size: 0.72rem;
+								text-transform: uppercase;
+								letter-spacing: 0.06em;
+								color: var(--muted);
+								margin-bottom: 0.75rem;
+								font-weight: 600;
+							"
+						>
+							HTTP validation challenges
+						</div>
+						<div id="detail-acme-list"></div>
+					</div>
+
+					<div class="info-row" style="gap: 0.75rem; justify-content: flex-end">
+						<button
+							class="btn-ghost"
+							style="font-size: 0.78rem"
+							onclick="refreshDomainDetail()"
+						>
+							↺ Refresh status
+						</button>
+						<button
+							class="btn-primary"
+							style="font-size: 0.78rem"
+							onclick="triggerRecheck()"
+						>
+							⚡ Trigger CF recheck
+						</button>
+						<button
+							class="btn-ghost"
+							style="
+								font-size: 0.78rem;
+								color: var(--error);
+								border-color: var(--error);
+							"
+							onclick="deleteDomainFromDetail()"
+						>
+							🗑 Delete
+						</button>
+					</div>
+				</div>
+			</div>
 		</div>
 
 		<!-- add domain modal -->
@@ -827,6 +931,17 @@
 						</div>
 					</div>
 
+					<!-- check status of domain -->
+					<div style="margin-top: 1rem; text-align: right">
+						<button
+							class="btn-ghost"
+							style="font-size: 0.75rem"
+							onclick="checkNow()"
+						>
+							↺ Check now
+						</button>
+					</div>
+
 					<div class="modal-footer">
 						<button class="btn-ghost" onclick="closeModal()">Close</button>
 					</div>
@@ -861,6 +976,7 @@
 			document.getElementById('v-role').textContent = claims.role || '—';
 			document.getElementById('v-host').textContent = host;
 			document.getElementById('v-subdomain').textContent = sub;
+			document.getElementById('nav-logo').innerHTML = sub + '<span>.</span>';
 			document.getElementById('v-token').textContent = token;
 
 			const expTs = claims.exp ? new Date(claims.exp * 1000) : null;
@@ -913,6 +1029,8 @@
 					const list = document.getElementById('domain-list');
 					const empty = document.getElementById('domain-empty');
 
+					list.querySelectorAll('.domain-row').forEach((el) => el.remove());
+
 					if (!domains.length) {
 						empty.style.display = 'block';
 						return;
@@ -923,10 +1041,59 @@
 						const row = document.createElement('div');
 						row.className = 'domain-row';
 						row.id = `dr-${d.id}`;
+
+						const actions = [];
+
+						if (d.status === 'active') {
+							actions.push(`
+          <a href="https://${d.domain}" target="_blank"
+             style="font-size:0.75rem;color:var(--accent);text-decoration:none">
+            ↗ Visit
+          </a>
+        `);
+						}
+
+						if (d.status === 'pending' || d.status === 'ssl_pending') {
+							actions.push(`
+          <button class="btn-ghost"
+            style="font-size:0.75rem;padding:0.25rem 0.65rem"
+            onclick="resumeDomain('${d.id}', '${d.domain}', '${d.cname_target || ''}')">
+            ⟳ Resume
+          </button>
+        `);
+						}
+
+						if (d.status === 'failed') {
+							actions.push(`
+          <button class="btn-ghost"
+            style="font-size:0.75rem;padding:0.25rem 0.65rem"
+            onclick="retryDomain('${d.id}', '${d.domain}')">
+            ↺ Retry
+          </button>
+        `);
+						}
+
 						row.innerHTML = `
-          <span class="domain-host">${d.domain}</span>
-          <span class="badge badge-${d.status}" id="badge-${d.id}">${d.status}</span>
-        `;
+						<span class="domain-host" style="cursor:pointer" onclick="showDomainDetail('${d.id}')">
+							${d.domain}
+						</span>
+						<div style="display:flex;align-items:center;gap:0.75rem">
+							<span class="badge badge-${d.status}" id="badge-${d.id}">${d.status}</span>
+							${
+								d.status === 'active'
+									? `
+								<a href="https://${d.domain}" target="_blank"
+									style="font-size:0.75rem;color:var(--accent);text-decoration:none">↗ Visit</a>
+							`
+									: `
+								<button class="btn-ghost" style="font-size:0.75rem;padding:0.25rem 0.65rem"
+									onclick="showDomainDetail('${d.id}')">
+									${d.status === 'failed' ? '↺ Retry' : '⟳ Details'}
+								</button>
+							`
+							}
+						</div>
+					`;
 						list.appendChild(row);
 					});
 				} catch (e) {
@@ -935,6 +1102,163 @@
 			}
 
 			loadDomains();
+
+			let detailDomainId = null;
+			let detailRefreshTimer = null;
+
+			async function showDomainDetail(domainId) {
+				detailDomainId = domainId;
+				document.getElementById('domain-detail').style.display = 'block';
+				document
+					.getElementById('domain-detail')
+					.scrollIntoView({ behavior: 'smooth' });
+				await refreshDomainDetail();
+
+				// auto-refresh every 15s for pending domains
+				if (detailRefreshTimer) clearInterval(detailRefreshTimer);
+				detailRefreshTimer = setInterval(async () => {
+					const status = document.getElementById('detail-badge').textContent;
+					if (status === 'active' || status === 'failed') {
+						clearInterval(detailRefreshTimer);
+						return;
+					}
+					await refreshDomainDetail();
+				}, 15000);
+			}
+
+			async function refreshDomainDetail() {
+				if (!detailDomainId) return;
+				try {
+					const res = await fetch(`/api/domains/${detailDomainId}/status`, {
+						headers: { Authorization: `Bearer ${token}` },
+					});
+					if (!res.ok) return;
+					const d = await res.json();
+
+					document.getElementById('detail-domain-name').textContent = d.domain;
+					document.getElementById('detail-badge').textContent = d.status;
+					document.getElementById('detail-badge').className =
+						`badge badge-${d.status}`;
+					document.getElementById('detail-ssl-status').textContent =
+						d.ssl_status || '—';
+					document.getElementById('detail-ssl-ca').textContent =
+						d.ssl_ca || '—';
+					document.getElementById('detail-txt-name').textContent =
+						d.ownership_txt_name || '—';
+					document.getElementById('detail-txt-value').textContent =
+						d.ownership_txt_value || '—';
+					document.getElementById('detail-errors').textContent = d
+						.verification_errors.length
+						? d.verification_errors.join(', ')
+						: 'none';
+					document.getElementById('detail-errors').className = d
+						.verification_errors.length
+						? 'info-val error'
+						: 'info-val success';
+
+					// ACME challenges
+					const acmeList = document.getElementById('detail-acme-list');
+					acmeList.innerHTML = '';
+					if (d.acme_challenges.length === 0) {
+						acmeList.innerHTML =
+							'<div style="font-size:0.8rem;color:var(--muted)">No challenges yet</div>';
+					}
+					d.acme_challenges.forEach((c) => {
+						const el = document.createElement('div');
+						el.style.cssText = 'margin-bottom:0.65rem;font-size:0.78rem';
+						el.innerHTML = `
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem">
+          <span style="color:${c.served ? 'var(--success)' : 'var(--error)'}">
+            ${c.served ? '✓ served' : '✗ not served'}
+          </span>
+          <span style="font-family:monospace;color:var(--muted);font-size:0.72rem">${c.token}</span>
+        </div>
+        <div style="font-family:monospace;font-size:0.7rem;color:var(--muted);word-break:break-all">${c.url}</div>
+      `;
+						acmeList.appendChild(el);
+					});
+
+					// update badge in domain list too
+					const listBadge = document.getElementById(`badge-${detailDomainId}`);
+					if (listBadge) {
+						listBadge.className = `badge badge-${d.status}`;
+						listBadge.textContent = d.status;
+					}
+
+					if (d.status === 'active') {
+						clearInterval(detailRefreshTimer);
+					}
+				} catch (e) {
+					console.error(e);
+				}
+			}
+
+			async function triggerRecheck() {
+				if (!detailDomainId) return;
+				const btn = event.target;
+				btn.disabled = true;
+				btn.textContent = 'Triggering...';
+
+				try {
+					await fetch(`/api/domains/${detailDomainId}/verify`, {
+						method: 'POST',
+						headers: { Authorization: `Bearer ${token}` },
+					});
+					btn.textContent = '✓ Triggered';
+					setTimeout(() => {
+						btn.disabled = false;
+						btn.textContent = '⚡ Trigger CF recheck';
+					}, 3000);
+					// refresh status after 3s
+					setTimeout(refreshDomainDetail, 3000);
+				} catch (e) {
+					btn.disabled = false;
+					btn.textContent = '⚡ Trigger CF recheck';
+				}
+			}
+
+			async function deleteDomainFromDetail() {
+				if (!detailDomainId) return;
+				if (!confirm('Delete this domain?')) return;
+
+				await fetch(`/api/domains/${detailDomainId}`, {
+					method: 'DELETE',
+					headers: { Authorization: `Bearer ${token}` },
+				});
+
+				document.getElementById('domain-detail').style.display = 'none';
+				clearInterval(detailRefreshTimer);
+				detailDomainId = null;
+				loadDomains();
+			}
+
+			async function resumeDomain(domainId, domain, cnameTarget) {
+				currentDomainId = domainId;
+
+				// fill modal with existing domain info
+				document.getElementById('step-input').style.display = 'none';
+				document.getElementById('dns-records').classList.add('show');
+				document.getElementById('modal').classList.add('open');
+
+				// fill CNAME record
+				const parts = domain.split('.');
+				const cnameName = parts.length > 2 ? parts.slice(0, -2).join('.') : '@';
+				document.getElementById('rec-cname-name').textContent = cnameName;
+
+				// fetch tunnel target from config if not passed
+				if (cnameTarget) {
+					document.getElementById('rec-cname-target').textContent = cnameTarget;
+				} else {
+					// fetch from a fresh add attempt or just show what we have
+					document.getElementById('rec-cname-target').textContent =
+						'see your .env CLOUDFLARE_TUNNEL_ID';
+				}
+
+				resetSteps();
+
+				// open SSE — server will immediately re-send records: event if ssl_pending
+				openDomainStream(domainId);
+			}
 
 			async function loadSessionInfo() {
 				try {
@@ -1109,6 +1433,80 @@
 					if (active) active.className = 'step-item error';
 					alert(`Failed: ${e.data}`);
 				});
+			}
+
+			async function retryDomain(domainId, domain) {
+				// delete old entry and re-add
+				try {
+					// delete from DB via API
+					const del = await fetch(`/api/domains/${domainId}`, {
+						method: 'DELETE',
+						headers: { Authorization: `Bearer ${token}` },
+					});
+
+					if (!del.ok) {
+						alert('Failed to reset domain — try again');
+						return;
+					}
+
+					// re-add
+					const add = await fetch('/api/domains', {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							Authorization: `Bearer ${token}`,
+						},
+						body: JSON.stringify({ domain }),
+					});
+
+					const data = await add.json();
+					if (!add.ok) {
+						alert(data.error || 'Failed to retry');
+						return;
+					}
+
+					currentDomainId = data.id;
+
+					// update the row immediately
+					const badge = document.getElementById(`badge-${domainId}`);
+					if (badge) {
+						badge.className = 'badge badge-pending';
+						badge.textContent = 'pending';
+					}
+
+					// open the modal in progress state
+					document.getElementById('step-input').style.display = 'none';
+					document.getElementById('dns-records').classList.add('show');
+					document.getElementById('modal').classList.add('open');
+
+					// fill CNAME record
+					const parts = domain.split('.');
+					const cnameName =
+						parts.length > 2 ? parts.slice(0, -2).join('.') : '@';
+					document.getElementById('rec-cname-name').textContent = cnameName;
+					document.getElementById('rec-cname-target').textContent =
+						data.cname_target;
+
+					// reset steps
+					resetSteps();
+
+					// open fresh SSE stream
+					openDomainStream(data.id);
+				} catch (e) {
+					alert('Network error');
+				}
+			}
+
+			async function checkNow() {
+				if (!currentDomainId) return;
+				// just close and reopen the SSE stream — server will recheck on next poll
+				// for immediate effect we call a manual verify endpoint
+				try {
+					await fetch(`/api/domains/${currentDomainId}/verify`, {
+						method: 'POST',
+						headers: { Authorization: `Bearer ${token}` },
+					});
+				} catch (e) {}
 			}
 
 			function copyVal(id, btn) {
