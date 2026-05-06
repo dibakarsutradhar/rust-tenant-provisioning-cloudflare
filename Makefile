@@ -48,12 +48,12 @@ migrate:
 
 # ── wipe and rebuild DB ───────────────────────────────────────────────────────
 reset:
-	@echo "→ Dropping and recreating database"
-	docker compose exec postgres psql -U garageos -c "DROP DATABASE IF EXISTS garageos;"
-	docker compose exec postgres psql -U garageos -c "CREATE DATABASE garageos;"
-	@echo "→ Running migrations"
+	docker compose exec postgres psql -U $${POSTGRES_USER} \
+	  -c "DROP DATABASE IF EXISTS $${POSTGRES_DB};"
+	docker compose exec postgres psql -U $${POSTGRES_USER} \
+	  -c "CREATE DATABASE $${POSTGRES_DB};"
 	sqlx migrate run
-	@echo "✓ Database reset complete"
+	@echo "✓ DB reset"
 
 # ── tail logs ─────────────────────────────────────────────────────────────────
 logs:
@@ -61,7 +61,7 @@ logs:
 
 # ── open psql ─────────────────────────────────────────────────────────────────
 db:
-	psql $${DATABASE_URL:-postgresql://garageos:secret@localhost:5432/garageos}
+	psql $${DATABASE_URL}
 
 # ── build release ─────────────────────────────────────────────────────────────
 build:
